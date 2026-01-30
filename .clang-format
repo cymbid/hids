@@ -1,0 +1,64 @@
+---
+BasedOnStyle: Google
+AccessModifierOffset: "-4" # 액세스 제어자 (public, private, protected) 뒤의 들여쓰기 수를 -4로 설정합니다.
+AlignAfterOpenBracket: Align # 여는 괄호 다음의 요소들을 정렬합니다.
+AllowAllArgumentsOnNextLine: "false" #  모든 함수 인수를 항상 다음 줄에 배치하지 않습니다.
+AllowAllConstructorInitializersOnNextLine: "false" # 모든 생성자 초기화 목록을 항상 다음 줄에 배치하지 않습니다.
+AllowAllParametersOfDeclarationOnNextLine: "false" # 모든 매개변수를 항상 다음 줄에 배치하지 않습니다.
+AllowShortBlocksOnASingleLine: "false" # 짧은 블록을 한 줄에 배치하지 않습니다.
+AllowShortCaseLabelsOnASingleLine: "false" # 짧은 case 레이블을 한 줄에 배치하지 않습니다.
+AllowShortFunctionsOnASingleLine: None # 짧은 함수 정의를 한 줄에 배치하지 않습니다.
+AllowShortIfStatementsOnASingleLine: Never # else 없이 짧은 if 문을 한 줄에 배치하지 않습니다.
+AllowShortLambdasOnASingleLine: None # 짧은 람다 표현식을 한 줄에 배치하지 않습니다.
+AllowShortLoopsOnASingleLine: "false" # 짧은 반복문을 한 줄에 배치하지 않습니다.
+BreakBeforeTernaryOperators: "true" # 삼항 연산자 앞에 줄 바꿈합니다.
+BreakBeforeBraces: Custom # 중괄호 앞에 줄 바꿈하는 내용을 BraceWrapping 에 따른다.
+BraceWrapping: # 중괄호의 래핑 설정을 구성합니다.
+  AfterCaseLabel: true # case 레이블 다음에 중괄호를 넣지 않습니다. (예: case 1: 다음에 줄 바꿈 없음)
+  AfterClass: true # 클래스 정의 뒤에 중괄호를 넣지 않습니다. (예: class MyClass { 다음에 줄 바꿈 없음)
+  AfterControlStatement: true # 제어문(예: if, for, while) 다음에 중괄호를 항상 넣지 않습니다.
+  AfterEnum: false # 열거형 정의 뒤에 중괄호를 넣지 않습니다.
+  AfterFunction: true # 함수 정의 뒤에 중괄호를 넣지 않습니다.
+  AfterNamespace: false # 네임스페이스 정의 뒤에 중괄호를 넣지 않습니다.
+  AfterObjCDeclaration: false # Objective-C 선언 다음에 중괄호를 넣지 않습니다.
+  AfterStruct: true # 구조체 정의 뒤에 중괄호를 넣지 않습니다.
+  AfterUnion: false # 공용체 정의 뒤에 중괄호를 넣지 않습니다.
+  AfterExternBlock: false # extern 블록 뒤에 중괄호를 넣지 않습니다.
+  BeforeCatch: true # catch 블록 앞에 중괄호를 넣지 않습니다.
+  BeforeElse: true # else 블록 앞에 중괄호를 넣지 않습니다.
+  #  BeforeLambdaBody: false  # 람다 함수 본문 앞에 중괄호를 넣지 않습니다.
+  #  BeforeWhile:     false  # while 루프 앞에 중괄호를 넣지 않습니다.
+  IndentBraces: false # 중괄호를 들여쓰지 않고 래핑합니다.
+  SplitEmptyFunction: true #  빈 함수 정의 내에서 중괄호를 분리하여 사용합니다. 즉, 함수 본문이 비어 있을 때 중괄호를 다음 줄로 옮깁니다.
+  SplitEmptyRecord: true # 빈 구조체나 클래스 정의 내에서 중괄호를 분리하여 사용합니다. 즉, 정의 본문이 비어 있을 때 중괄호를 다음 줄로 옮깁니다.
+  SplitEmptyNamespace: true # 빈 네임스페이스 정의 내에서 중괄호를 분리하여 사용합니다. 즉, 네임스페이스 내에 다른 내용이 없을 때 중괄호를 다음 줄로 옮깁니다.
+BreakConstructorInitializers: BeforeComma # 생성자 초기화 목록에서 쉼표 앞에 줄 바꿈하지 않습니다.
+BreakInheritanceList: BeforeComma # 상속 목록을 콜론 앞에서 줄 바꿈합니다.
+ColumnLimit: "120" # 한 줄의 최대 길이를 120으로 제한합니다.
+CompactNamespaces: "false" # 네임스페이스 정의를 압축하지 않습니다.
+ConstructorInitializerAllOnOneLineOrOnePerLine: "false" # 생성자 초기화 목록을 한 줄에 모두 배치하지 않습니다.
+ConstructorInitializerIndentWidth: "4" # 생성자 초기화 목록의 들여쓰기 너비를 4로 설정합니다.
+ContinuationIndentWidth: "4" # 계속 들여쓰기 너비를 4로 설정합니다.
+FixNamespaceComments: "true" # 네임스페이스 주석을 자동으로 수정합니다.
+IncludeCategories: # include 지시문을 분류하는 방법을 설정합니다.
+  # DO NOT change order and place.
+  - Regex: '^<.*\.h>'
+    Priority: 3
+  - Regex: "^<.*"
+    Priority: 2
+  - Regex: ".*"
+    Priority: 1
+IndentCaseLabels: "false" # case 레이블의 들여쓰기를 수행하지 않습니다.
+IndentWidth: "4" # 들여쓰기의 너비를 4로 설정합니다.
+Language: Cpp # Clang Format이 C++ 언어로 작동하도록 지정합니다.
+NamespaceIndentation: None # 네임스페이스 블록 들여쓰기를 따로 지정하지 않습니다.
+SortIncludes: "true" # #include 지시문을 정렬합니다.
+SortUsingDeclarations: "true" # using 선언을 정렬합니다.
+SpaceBeforeCpp11BracedList: "true" # C++11 중괄호 초기화 목록({}) 앞에 공백을 넣습니다.
+SpaceBeforeCtorInitializerColon: "true" # 생성자 초기화 목록의 콜론(:) 앞에 공백을 넣습니다.
+SpacesInCStyleCastParentheses: "false" # C 스타일 캐스트의 괄호 사이에 공백을 넣지 않습니다.
+TabWidth: "4" # 탭의 너비를 4로 설정합니다.
+UseTab: Never # 탭 문자를 사용하지 않습니다.
+
+# clang-format-14
+# PackConstructorInitializers: NextLine  # 생성자 초기화 목록을 다음 줄로 넘깁니다.

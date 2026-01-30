@@ -1,0 +1,422 @@
+//
+//  Server.cpp
+//  raserver
+//
+//  Created by orchid on 2018. 9. 3..
+//
+
+#include "Log.hpp"
+#include "Server.hpp"
+// #include "RestApi.hpp"
+#include "crypto.hpp"
+// #include "piclStr.h"
+
+#define USE_STANDALONE_ASIO 1
+#include "server_https.hpp"
+
+// #include <boost/filesystem.hpp>
+
+// #include <filesystem>
+#include <fstream>
+#include <iostream>
+// #include <memory>
+
+using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
+using HttpsServer = SimpleWeb::Server<SimpleWeb::HTTPS>;
+
+class HttpServerInfo
+{
+public:
+    HttpServer *httpServer;
+    HttpsServer *httpsServer;
+};
+
+Server::Server()
+    : httpServerInfo(new HttpServerInfo)
+{
+    httpServerInfo->httpsServer = nullptr;
+    // httpServerInfo->httpsServer = nullptr;
+}
+
+Server::~Server()
+{
+    if (httpServerInfo->httpsServer)
+    {
+        delete httpServerInfo->httpsServer;
+        httpServerInfo->httpsServer = nullptr;
+    }
+    // if (httpServer)
+    // {
+    //     delete httpServer;
+    //     httpServer = nullptr;
+    // }
+    LOG_DBG("end Server");
+}
+
+bool Server::init(nlohmann::json &conf)
+{
+    this->svrConf = conf;
+    // this->restApi = restApi;
+
+    std::string privKey = svrConf.value("priv_key", "priv.key");
+    std::string cert = svrConf.value("cert", "cert.crt");
+
+    useSSL = !(privKey.empty() || cert.empty());
+
+    int port = svrConf.value("port", 7553);
+
+    int thread_pool_size = std::stoi(svrConf.value("thread_pool_size", "2"));
+
+    // if ( useSSL )
+    {
+        httpServerInfo->httpsServer = new HttpsServer(cert, privKey);
+        httpServerInfo->httpsServer->config.port = port;
+        httpServerInfo->httpsServer->config.thread_pool_size = thread_pool_size;
+    }
+    // else
+    // {
+    //     httpServerInfo->httpsServer = new HttpsServer();
+    //     httpServerInfo->httpsServer->config.port = port;
+    //     httpServerInfo->httpsServer->config.thread_pool_size = thread_pool_size;
+
+    // }
+    initResource();
+    return true;
+}
+
+bool Server::initResource()
+{
+    nlohmann::json prefix = svrConf["prefix"];
+    std::string restApiBase = prefix.value("restApi", "api");
+    std::string htmlRootDir = prefix.value("htmlRootDir", "html");
+
+    if (!restApiBase.empty())
+    {
+        httpServerInfo->httpsServer->resource["^/" + restApiBase + "/([a-zA-Z_0-9/]+)"]["POST"] =
+            [this](std::shared_ptr<HttpsServer::Response> response, std::shared_ptr<HttpsServer::Request> request) {
+                try
+                {
+                    LOG_TRA("path: {}", request->path);
+                    LOG_TRA("query_string: {}", request->query_string);
+
+                    nlohmann::json inData;
+                    request->content >> inData;
+
+                    LOG_TRA("content: {}", inData.dump(2));
+
+                    auto path = request->path_match[1].str();
+                    auto api = restApiMap.find(path);
+                    if (api == restApiMap.end())
+                    {
+                        throw std::invalid_argument("path error");
+                    }
+                    std::string outData = api->second(inData);
+
+                    LOG_TRA("res content: {}", outData.size());
+                    *response << "HTTP/1.1 200 OK\r\n"
+                              << "Content-Length: " << outData.size() << "\r\n\r\n"
+                              << outData;
+                }
+                catch (const std::exception &e)
+                {
+                    LOG_ERR("Error: {}", e.what());
+                    *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n"
+                              << e.what();
+                }
+            };
+    }
+
+    //     if ( !webApiBase.empty() )
+    //     {
+    //         httpServerInfo->httpsServer->resource["^/" + webApiBase + "/([a-zA-Z_0-9/]+)"]["POST"] =
+    //         [this](std::shared_ptr<HttpsServer::Response> response, std::shared_ptr<HttpsServer::Request> request)
+    //         {
+    //             try
+    //             {
+    // //                LOG_TRACE << "path: " << request->path;
+    // //                LOG_TRACE << "query_string: " << request->query_string;
+
+    //                 Json::Value inData;
+    //                 request->content >> inData;
+
+    // //                LOG_TRACE << "inData: " << inData.toStyledString();
+
+    //                 Json::Value outData = webApi.api(request->path_match[1].str(), inData);
+
+    // //                LOG_TRACE << "outData: " << outData.toStyledString();
+
+    //                 std::string outStr = Json::writeString(jsonBuilder, outData);
+
+    //                 *response << "HTTP/1.1 200 OK\r\n"
+    //                 << "Content-Length: " << outStr.length() << "\r\n\r\n"
+    //                 << outStr;
+    //             }
+    //             catch(const std::exception &e)
+    //             {
+    //                 // LOG_ERROR << "Error: " << e.what();
+    //                 *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n"
+    //                 << e.what();
+    //             }
+    //         };
+    //     }
+
+    if (!htmlRootDir.empty())
+    {
+        httpServerInfo->httpsServer->default_resource["GET"] = [htmlRootDir](
+                                                                   std::shared_ptr<HttpsServer::Response> response,
+                                                                   std::shared_ptr<HttpsServer::Request> request) {
+            // LOG_DEBUG << "request->path: " << request->path;
+            LOG_DBG("request->path: {}", request->path);
+            try
+            {
+                auto web_root_path = std::filesystem::canonical(htmlRootDir);
+                LOG_DBG("web_root_path: {}", web_root_path.string());
+                auto path = std::filesystem::canonical(htmlRootDir + request->path);
+                LOG_DBG("path: {}", path.string());
+                // Check if path is within web_root_path
+                if (std::distance(web_root_path.begin(), web_root_path.end()) >
+                        std::distance(path.begin(), path.end()) ||
+                    !std::equal(web_root_path.begin(), web_root_path.end(), path.begin()))
+                    throw std::invalid_argument("path must be within root path");
+                if (std::filesystem::is_directory(path))
+                {
+                    path /= "index.html";
+                }
+
+                SimpleWeb::CaseInsensitiveMultimap header;
+
+                //                Uncomment the following line to enable Cache-Control
+                header.emplace("Cache-Control", "max-age=86400");
+
+                // #ifdef HAVE_OPENSSL
+                //                 Uncomment the following lines to enable ETag
+                {
+                    std::ifstream ifs(path.string(), std::ifstream::in | std::ios::binary);
+                    if (ifs)
+                    {
+                        auto hash = SimpleWeb::Crypto::to_hex_string(SimpleWeb::Crypto::md5(ifs));
+                        header.emplace("ETag", "\"" + hash + "\"");
+                        auto it = request->header.find("If-None-Match");
+                        if (it != request->header.end())
+                        {
+                            if (!it->second.empty() && it->second.compare(1, hash.size(), hash) == 0)
+                            {
+                                response->write(SimpleWeb::StatusCode::redirection_not_modified, header);
+                                // LOG_DEBUG << "";
+                                return;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        LOG_ERR("could not read file: {}", path.string());
+                        throw std::invalid_argument("could not read file");
+                    }
+                }
+                // #endif
+                //  LOG_DEBUG << "";
+                auto ifs = std::make_shared<std::ifstream>();
+                ifs->open(path.string(), std::ifstream::in | std::ios::binary | std::ios::ate);
+
+                if (*ifs)
+                {
+                    auto length = ifs->tellg();
+                    ifs->seekg(0, std::ios::beg);
+
+                    header.emplace("Content-Length", to_string(length));
+                    response->write(header);
+
+                    // Trick to define a recursive function within this scope (for example purposes)
+                    class FileServer
+                    {
+                    public:
+                        static void read_and_send(const std::shared_ptr<HttpsServer::Response> &response,
+                                                  const std::shared_ptr<std::ifstream> &ifs)
+                        {
+                            // Read and send 128 KB at a time
+                            static std::vector<char> buffer(131072);  // Safe when server is running on one thread
+                            std::streamsize read_length;
+                            if ((read_length =
+                                     ifs->read(&buffer[0], static_cast<std::streamsize>(buffer.size())).gcount()) > 0)
+                            {
+                                response->write(&buffer[0], read_length);
+                                if (read_length == static_cast<std::streamsize>(buffer.size()))
+                                {
+                                    response->send([response, ifs](const SimpleWeb::error_code &ec) {
+                                        if (!ec)
+                                        {
+                                            read_and_send(response, ifs);
+                                        }
+                                        else
+                                        {
+                                            // std::cerr << "Connection interrupted" << std::endl;
+                                            LOG_ERR("Connection interrupted");
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    };
+                    LOG_DBG("");
+                    FileServer::read_and_send(response, ifs);
+                }
+                else
+                {
+                    LOG_DBG("");
+                    throw std::invalid_argument("could not read file");
+                }
+            }
+            catch (const std::exception &e)
+            {
+                // LOG_ERROR << "Error" << "Could not open path " << request->path << ": " << e.what();
+                LOG_DBG("Error: Could not open path {} : {}", request->path, e.what());
+                response->write(SimpleWeb::StatusCode::client_error_bad_request,
+                                "Could not open path " + request->path + ": " + e.what());
+            }
+        };
+    }
+
+    //     if ( !uploadBase.empty() )
+    //     {
+    //         httpServerInfo->httpsServer->resource["^/" + uploadBase + "/([a-zA-Z_0-9/]+)"]["POST"] =
+    //         [this](std::shared_ptr<HttpsServer::Response> response, std::shared_ptr<HttpsServer::Request>
+    //         request) {
+    //             std::string buffer;
+    //             buffer.resize(131072);
+
+    //             std::string boundary;
+    //             if(!getline(request->content, boundary)) {
+    //                 response->write(SimpleWeb::StatusCode::client_error_bad_request);
+    //                 return;
+    //             }
+    //             Json::Value jRes;
+
+    //             // go through all content parts
+    //             while(true)
+    //             {
+    //                 std::stringstream file; // std::stringstream is used as example output type
+    //                 std::string filename;
+
+    //                 auto header = SimpleWeb::HttpHeader::parse(request->content);
+    //                 auto header_it = header.find("Content-Disposition");
+    //                 if(header_it != header.end())
+    //                 {
+    //                     auto content_disposition_attributes =
+    //                     SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse(header_it->second);
+    //                     auto filename_it = content_disposition_attributes.find("filename");
+    //                     if(filename_it != content_disposition_attributes.end())
+    //                     {
+    //                         filename = filename_it->second;
+    //                         uint32_t filesize = 0;
+    //                         bool add_newline_next = false; // there is an extra newline before content
+    //                         boundary, this avoids adding this extra newline to file
+    //                         // store file content in variable file
+    //                         while(true) {
+    //                             request->content.getline(&buffer[0],
+    //                             static_cast<std::streamsize>(buffer.size()));
+
+    //                             if(request->content.eof()) {
+    //                                 response->write(SimpleWeb::StatusCode::client_error_bad_request);
+    //                                 return;
+    //                             }
+    //                             auto size = request->content.gcount();
+
+    //                             if(size >= 2 && (static_cast<size_t>(size - 1) == boundary.size() ||
+    //                             static_cast<size_t>(size - 1) == boundary.size() + 2) && // last boundary
+    //                             ends with:
+    //                             --
+    //                                std::strncmp(buffer.c_str(), boundary.c_str(), boundary.size() - 1
+    //                                /*ignore \r*/)
+    //                                == 0 && buffer[static_cast<size_t>(size) - 2] == '\r') // buffer must also
+    //                                include \r at end
+    //                             {
+    //                                 break;
+    //                             }
+
+    //                             if(add_newline_next)
+    //                             {
+    //                                 file.put('\n');
+    //                                 add_newline_next = false;
+    //                                 filesize += 1;
+    //                             }
+
+    //                             if(!request->content.fail())
+    //                             { // got line or section that ended with newline
+    //                                 file.write(buffer.c_str(), size - 1); // size includes newline character,
+    //                                 but buffer does not add_newline_next = true; filesize += size - 1;
+    //                             }
+    //                             else
+    //                             {
+    //                                 file.write(buffer.c_str(), size);
+    //                                 filesize += size;
+    //                             }
+
+    //                             request->content.clear(); // clear stream state
+    //                         }
+    //                         // LOG_DEBUG << "filesize: " << filesize << ", " << filesize/1024./1024.;
+
+    //                         Json::Value outData = uploadApi.api(request->path_match[1].str(), filename, file,
+    //                         request->header, filesize);
+
+    //                         jRes.append(outData);
+    //                         // LOG_TRACE << "outData: " << outData.toStyledString();
+
+    // //                        std::cout << "filename: " << filename << std::endl
+    // //                        << "file content:" << std::endl
+    // //                        << file.str() << std::endl;
+    //                     }
+    //                 }
+    //                 else { // no more parts
+    //                     std::string outStr = Json::writeString(jsonBuilder, jRes);
+
+    //                     *response << "HTTP/1.1 200 OK\r\n"
+    //                         << "Content-Length: " << outStr.length() << "\r\n\r\n"
+    //                         << outStr;
+
+    // //                    response->write(); // Write empty success response
+    //                     return;
+    //                 }
+    //             }
+    //         };
+    //     }
+
+    //    httpServerInfo->httpsServer->default_resource["GET"] = [](std::shared_ptr<HttpsServer::Response>
+    //    response, std::shared_ptr<HttpsServer::Request> request)
+    //    {
+    //        LOG_DEBUG << "http: " << request->path;
+    //        std::string content="Could not open path "+request->path;
+    //        *response << "HTTP/1.1 404 Not Found\r\nContent-Length: " << content.length() << "\r\n\r\n" <<
+    //        content;
+    //    };
+
+    httpServerInfo->httpsServer->on_error = [](std::shared_ptr<HttpsServer::Request> request,
+                                               const SimpleWeb::error_code &ec) {
+        // LOG_ERROR << "http error: " << ec.message() << "   " << request->path;
+        LOG_ERR("http error: {}   {}", ec.message(), request->path);
+    };
+
+    //    httpServerInfo->httpsServer->start();
+
+    return true;
+}
+
+bool Server::start()
+{
+    serverThread = std::thread([this]() {
+        // Start server
+        httpServerInfo->httpsServer->start();
+    });
+    return true;
+}
+
+bool Server::join()
+{
+    serverThread.join();
+    return true;
+}
+
+bool Server::stop()
+{
+    httpServerInfo->httpsServer->stop();
+    return true;
+}

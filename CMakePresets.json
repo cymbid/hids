@@ -1,0 +1,36 @@
+{
+    "version": 2,
+    "configurePresets": [
+        {
+            "name": "default",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "LOG_ACTIVE_LEVEL": "0"
+            }
+        },
+        {
+            "name": "aarch64-cross",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build-aarch64",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "LOG_ACTIVE_LEVEL": "0",
+                "CMAKE_TOOLCHAIN_FILE": "toolchain_general_linaro_arm64.cmake"
+            }
+        },
+        {
+            "name": "arm64-cross",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build-arm64",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "LOG_ACTIVE_LEVEL": "0",
+                "CMAKE_TOOLCHAIN_FILE": "toolchain_general_arm64.cmake",
+                "USE_BACKWARD": "OFF",
+                "USE_OPENSSL": "OFF"
+            }
+        }
+    ]
+}
