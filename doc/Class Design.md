@@ -2,7 +2,7 @@
 
 ```mermaid
 classDiagram
-    direction TB
+    direction LR
 
     class EvseIdsDaemon {
       +start() int
@@ -391,6 +391,8 @@ classDiagram
     AlertManager --> Logger : log
     LogBundleBuilder --> Logger : read logs
     OpsServer --> EvseIdsDaemon : status/reload
+
+
 ```
 
 # 클래스 설계서 (Class Design Spec)
