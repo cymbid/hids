@@ -41,6 +41,7 @@ message(STATUS "yara_x_SOURCE_DIR: ${yara_x_SOURCE_DIR}")
 corrosion_import_crate(MANIFEST_PATH "${yara_x_SOURCE_DIR}/Cargo.toml")
 
 file(GLOB DEPS_SRC CONFIGURE_DEPENDS "src/*")
+list(APPEND DEPS_SRC "src/YaraScanner.hpp")
 set(ALL_DEPS ${DEPS_SRC})
 
 # 산출물 선언. 미기재시 최상위 설정에 의해 static, shared, module등 결정

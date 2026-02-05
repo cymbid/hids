@@ -95,6 +95,7 @@ int Main::startMain(int argc, const char* const* argv, [[maybe_unused]] const ch
     bool sendMsg;
     bool runYaraTest;
     bool runFanotifyTest;
+    std::string yaraWatchMode;
 
     cxxopts::Options options(EXECUTABLE_NAME, "Ship Network Monitoring System.");
     options.add_options()                                                           //
@@ -108,6 +109,8 @@ int Main::startMain(int argc, const char* const* argv, [[maybe_unused]] const ch
         ("m,messages", "send COUNT messages", cxxopts::value<int>()->default_value("100"))                      //
         ("y,yara-test", "run inotify+yara-x test", cxxopts::value<bool>()->default_value("false"))              //
         ("f,fanotify-test", "run fanotify+yara-x test", cxxopts::value<bool>()->default_value("false"))         //
+        ("Y,yara-watch", "select yara watch mode (inotify|fanotify)",
+         cxxopts::value<std::string>()->default_value(""))  //
 
         ("h,help", "produce help message")  //
         ("version", "print version");       //
@@ -148,6 +151,7 @@ int Main::startMain(int argc, const char* const* argv, [[maybe_unused]] const ch
         sendMsg = vm["send"].as<bool>();
         runYaraTest = vm["yara-test"].as<bool>();
         runFanotifyTest = vm["fanotify-test"].as<bool>();
+        yaraWatchMode = vm["yara-watch"].as<std::string>();
 
         // for (auto &x : vm.arguments())
         // {
@@ -173,14 +177,33 @@ int Main::startMain(int argc, const char* const* argv, [[maybe_unused]] const ch
         return 1;
     }
 
-    if (runYaraTest)
+    if (!yaraWatchMode.empty())
     {
-        test_yara_x();
+        if (yaraWatchMode == "inotify")
+        {
+            run_yara_x_watch(YaraWatchMode::Inotify);
+        }
+        else if (yaraWatchMode == "fanotify")
+        {
+            run_yara_x_watch(YaraWatchMode::Fanotify);
+        }
+        else
+        {
+            LOG_ERR("invalid yara-watch value: {} (use inotify|fanotify)", yaraWatchMode);
+            return 1;
+        }
     }
-
-    if (runFanotifyTest)
+    else
     {
-        test_yara_x_fanotify();
+        if (runYaraTest)
+        {
+            test_yara_x();
+        }
+
+        if (runFanotifyTest)
+        {
+            test_yara_x_fanotify();
+        }
     }
 
     return 0;
